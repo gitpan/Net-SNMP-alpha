@@ -1,0 +1,74 @@
+
+                       Net::SNMP, version ALPHA-4.0.0 
+
+NAME
+
+    Net::SNMP - Simple Network Management Protocol
+
+ALPHA NOTICE
+
+    **************************************************************** 
+
+    This distribution is an alpha quality release of Net::SNMP 
+    v4.0.0 and is subject to change.  The module has been completely 
+    redesigned to add support for SNMPv3 and to follow the SNMP 
+    Management Framework defined by RFC 2571.  Any problems, 
+    suggestions, or comments should be e-mailed to the author.
+
+    ****************************************************************
+    
+DESCRIPTION
+
+    The module Net::SNMP implements an object oriented interface to
+    the Simple Network Management Protocol. Perl applications can
+    use the module to retrieve or update information on a remote
+    host using the SNMP protocol. SNMPv1, SNMPv2c (Community-Based
+    SNMPv2), and SNMPv3 are supported by the module. The Net::SNMP
+    module assumes that the user has a basic understanding of the
+    Simple Network Management Protocol and related network
+    management concepts.
+
+INSTALLATION
+
+    To install, cd to the directory containing the unpacked
+    distribution and do one of the following:
+
+        a.  Create a makefile by running Perl against Makefile.PL and 
+            then run make:
+
+                perl Makefile.PL
+                make test
+                make install
+
+        b.  Copy or move the entire directory structure (including 
+            files) located under the lib/Net directory in the 
+            distribution into a directory named Net in a Perl library 
+            directory.
+
+REQUIREMENTS
+
+     Net::SNMP uses syntax that is not supported in versions of Perl 
+     earlier than v5.6.0. 
+
+     The non-core modules Crypt::DES, Digest::MD5, Digest::HMAC, and
+     Digest::SHA1 are need to support SNMPv3.
+
+DOCUMENTATION
+
+    Documentation is included as part of the Net::SNMP module in 
+    Plain Old Documentation (POD) format. 
+
+AUTHOR
+
+    David M. Town <dtown@cpan.org>
+
+COPYRIGHT
+
+    Copyright (c) 1998-2001 David M. Town. All rights reserved. This
+    program is free software; you may redistribute it and/or modify
+    it under the same terms as Perl itself.
+
+RCS
+
+    $Id: README,v 4.0 2001/10/15 13:38:12 dtown Exp $
+
