@@ -3,7 +3,7 @@
 
 package Net::SNMP::PDU;
 
-# $Id: PDU.pm,v 1.0 2001/10/15 13:29:08 dtown Exp $
+# $Id: PDU.pm,v 1.1 2001/10/26 12:26:10 dtown Exp $
 
 # Object used to represent a SNMP PDU. 
 
@@ -17,7 +17,6 @@ package Net::SNMP::PDU;
 
 use strict;
 
-use Sys::Hostname();
 use Net::SNMP::Message qw(:ALL);
 
 ## Version of the Net::SNMP::PDU module
@@ -109,6 +108,8 @@ sub new
 
 sub prepare_get_request
 {
+#  my ($this, $oids) = @_;
+
    $_[0]->_error_clear;
 
    $_[0]->_prepare_pdu(GET_REQUEST, $_[0]->_create_oid_null_pairs($_[1] || []));
@@ -116,6 +117,8 @@ sub prepare_get_request
 
 sub prepare_get_next_request
 {
+#  my ($this, $oids) = @_; 
+
    $_[0]->_error_clear;
 
    $_[0]->_prepare_pdu(
@@ -125,6 +128,8 @@ sub prepare_get_next_request
 
 sub prepare_set_request
 {
+#  my ($this, $trios) = @_; 
+
    $_[0]->_error_clear;
 
    $_[0]->_prepare_pdu(
@@ -134,6 +139,8 @@ sub prepare_set_request
 
 sub prepare_trap
 {
+#  my ($this, $enterprise, $addr, $generic, $specific, $time, $trios) = @_;
+
    $_[0]->_error_clear;
 
    return $_[0]->_error('Missing arguments for Trap-PDU') if (@_ < 6);
@@ -218,6 +225,8 @@ sub prepare_trap
 
 sub prepare_get_bulk_request
 {
+#  my ($this, $repeaters, $repetitions, $oids) = @_;
+
    $_[0]->_error_clear;
 
    return $_[0]->_error('Missing arguments for GetBulkRequest-PDU') if (@_ < 3);
@@ -274,6 +283,8 @@ sub prepare_get_bulk_request
 
 sub prepare_inform_request
 {
+#  my ($this, $trios) = @_;
+
    $_[0]->_error_clear;
 
    $_[0]->_prepare_pdu(
@@ -283,6 +294,8 @@ sub prepare_inform_request
 
 sub prepare_snmpv2_trap
 {
+#  my ($this, $trios) = @_;
+
    $_[0]->_error_clear;
 
    $_[0]->_prepare_pdu(
@@ -349,6 +362,8 @@ sub debug
 
 sub _prepare_pdu
 {
+#  my ($this, $type, $var_bind_list) = @_;
+
    # Do not do anything if there has already been an error
    return $_[0]->_error if defined($_[0]->{_error});
 
@@ -476,6 +491,8 @@ sub _prepare_var_bind_list
 
 sub _create_oid_null_pairs
 {
+#  my ($this, $oids) = @_;
+
    if (ref($_[1]) ne 'ARRAY') {
       return $_[0]->_error('Expected array reference for variable-bindings');
    }
@@ -494,6 +511,8 @@ sub _create_oid_null_pairs
 
 sub _create_oid_value_pairs
 {
+#  my ($this, $trios) = @_;
+
    if (ref($_[1]) ne 'ARRAY') {
       return $_[0]->_error('Expected array reference for variable-bindings');
    }
@@ -525,6 +544,8 @@ sub _process_pdu
 
 sub _process_pdu_sequence
 {
+#  my ($this) = @_;
+
    # PDUs::=CHOICE
    if (!defined($_[0]->{_pdu_type} = $_[0]->process)) {
       return $_[0]->_error;
@@ -583,6 +604,8 @@ sub _process_pdu_sequence
 
 sub _process_var_bind_list
 {
+#  my ($this) = @_;
+
    my $value;
 
    # VarBindList::=SEQUENCE
@@ -590,13 +613,14 @@ sub _process_var_bind_list
       return $_[0]->_error;
    }
 
-   # Figure out the end index
+   # Using the length of the VarBindList SEQUENCE, 
+   # calculate the end index.
+
    my $end = $_[0]->index + $value;
 
    $_[0]->{_var_bind_list} = {};
 
    my $oid;
-   my $dup_cnt = 0;
 
    while ($_[0]->index < $end) {
 
@@ -619,14 +643,19 @@ sub _process_var_bind_list
       # that OBJECT IDENTIFIER with spaces to make a unique
       # key in the hash.
 
-      if (exists($_[0]->{_var_bind_list}->{$oid})) {
-         DEBUG_INFO("duplicate OID, making unique key");
-         $oid .= ' ' x ++$dup_cnt; # Pad with spaces
+      while (exists($_[0]->{_var_bind_list}->{$oid})) {
+         $oid .= ' '; # Pad with spaces
       }
+
       DEBUG_INFO("{ %s => %s }", $oid, $value);
       $_[0]->{_var_bind_list}->{$oid} = $value;
 
    }
+
+   # Return an error based on the contents of the VarBindList
+   # if we received a Report-PDU.
+
+   return $_[0]->_report_pdu_error if ($_[0]->{_pdu_type} == REPORT);
 
    # Return the var_bind_list hash
    $_[0]->{_var_bind_list};
@@ -669,6 +698,70 @@ sub _create_request_id()
       }
 
       sprintf("%s(%d)", $error_status[$_[0]], $_[0]);
+   }
+}
+
+{
+   my %report_oids = (
+      '1.3.6.1.6.3.11.2.1.1' =>  'snmpUnknownSecurityModels',
+      '1.3.6.1.6.3.11.2.1.2' =>  'snmpInvalidMsgs',
+      '1.3.6.1.6.3.11.2.1.3' =>  'snmpUnknownPDUHandlers',
+      '1.3.6.1.6.3.15.1.1.1' =>  'usmStatsUnsupportedSecLevels',
+      '1.3.6.1.6.3.15.1.1.2' =>  'usmStatsNotInTimeWindows',
+      '1.3.6.1.6.3.15.1.1.3' =>  'usmStatsUnknownUserNames',
+      '1.3.6.1.6.3.15.1.1.4' =>  'usmStatsUnknownEngineIDs',
+      '1.3.6.1.6.3.15.1.1.5' =>  'usmStatsWrongDigests',
+      '1.3.6.1.6.3.15.1.1.6' =>  'usmStatsDecryptionErrors'
+   );
+
+   sub _report_pdu_error
+   {
+      my ($this) = @_;
+
+      # Remove the leading dot (if present) and replace
+      # the dotted notation of the OBJECT IDENTIFIER
+      # with the text representation if it is known.
+
+      my $count = 0;
+      my %var_bind_list;
+
+      map {
+
+         my $oid = $_;
+         $oid =~ s/^\.//;
+
+         $count++;
+
+         map { $oid =~ s/\Q$_/$report_oids{$_}/; } keys(%report_oids);
+
+         $var_bind_list{$oid} = $this->{_var_bind_list}->{$_};
+
+      } keys(%{$this->{_var_bind_list}});
+
+     
+      if ($count == 1) {
+ 
+         # Return the OBJECT IDENTIFIER and value.
+            
+         my $oid = (keys(%var_bind_list))[0];
+
+         $this->_error(
+            'Received %s Report-PDU with value %s', $oid, $var_bind_list{$oid}
+         );
+ 
+      } elsif ($count > 1) {
+
+         # Return a list of OBJECT IDENTIFIERs.
+
+         $this->_error(
+            'Received Report-PDU [%s]', join(', ', keys(%var_bind_list))
+         );
+
+      } else {
+
+         $this->_error('Received empty Report-PDU');
+
+      }
    }
 }
 

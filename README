@@ -24,7 +24,7 @@ DESCRIPTION
     use the module to retrieve or update information on a remote
     host using the SNMP protocol. SNMPv1, SNMPv2c (Community-Based
     SNMPv2), and SNMPv3 are supported by the module. The Net::SNMP
-    module assumes that the user has a basic understanding of the
+    module assumes that th user has a basic understanding of the
     Simple Network Management Protocol and related network
     management concepts.
 
@@ -51,7 +51,7 @@ REQUIREMENTS
      earlier than v5.6.0. 
 
      The non-core modules Crypt::DES, Digest::MD5, Digest::HMAC, and
-     Digest::SHA1 are need to support SNMPv3.
+     Digest::SHA1 are needed to support SNMPv3.
 
 DOCUMENTATION
 
@@ -70,5 +70,5 @@ COPYRIGHT
 
 RCS
 
-    $Id: README,v 4.0 2001/10/15 13:38:12 dtown Exp $
+    $Id: README,v 4.1 2001/10/26 12:26:10 dtown Exp $
 

@@ -3,7 +3,7 @@
 
 package Net::SNMP::MessageProcessing;
 
-# $Id: MessageProcessing.pm,v 1.0 2001/10/15 13:28:33 dtown Exp $
+# $Id: MessageProcessing.pm,v 1.1 2001/10/26 12:26:10 dtown Exp $
 
 # Object that implements the Message Processing module.
 
@@ -39,7 +39,7 @@ sub instance
    $INSTANCE || ($INSTANCE = Net::SNMP::MessageProcessing->_new);
 }
 
- sub prepare_outgoing_msg
+sub prepare_outgoing_msg
 {
    my ($this, $pdu) = @_;
 
@@ -250,11 +250,6 @@ sub prepare_data_elements
      $this->_error($msg->error);
      return FALSE;
    }
-
-   # Should we indicate an error if we receive a Report-PDU?
-#  if ($msg->pdu_type == REPORT) {
-#      $this->_error('Received a %s', asn1_itoa(REPORT)); 
-#  }
 
    # Return the PDU
    $msg;

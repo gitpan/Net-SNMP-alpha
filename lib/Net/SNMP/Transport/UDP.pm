@@ -3,7 +3,7 @@
 
 package Net::SNMP::Transport::UDP;
 
-# $Id: UDP.pm,v 1.0 2001/10/15 13:34:17 dtown Exp $
+# $Id: UDP.pm,v 1.1 2001/10/26 12:26:10 dtown Exp $
 
 # Object that handles the UDP/IP Transport layer for the SNMP Engine.
 
@@ -232,8 +232,8 @@ sub max_msg_size
             $MAX_SIZE_MSG = $_[1] if ($_[1] > $MAX_SIZE_MSG);
          } else {
             return $_[0]->_error(
-               'Invalid maxMsgSize, range [%d - %d octets]',
-               MSG_SIZE_MINIMUM, MSG_SIZE_MAXIMUM
+               'Invalid maxMsgSize value [%s], range %d - %d octets',
+               $_[1], MSG_SIZE_MINIMUM, MSG_SIZE_MAXIMUM
             );
          }
       } else {
@@ -253,9 +253,9 @@ sub timeout
          if (($_[1] >= TIMEOUT_MINIMUM) && ($_[1] <= TIMEOUT_MAXIMUM)) {
             $_[0]->[_TIMEOUT] = $_[1];
          } else {
-            return $_[0]->_object_encode_error(
-               'Invalid timeout, range [%03.01f - %03.01f seconds]',
-               TIMEOUT_MINIMUM, TIMEOUT_MAXIMUM 
+            return $_[0]->_error(
+               'Invalid timeout value [%s], range %03.01f - %03.01f seconds',
+               $_[1], TIMEOUT_MINIMUM, TIMEOUT_MAXIMUM 
             );
          }
       } else {
@@ -276,8 +276,8 @@ sub retries
             $_[0]->[_RETRIES] = $_[1];
          } else {
             return $_[0]->_error(
-               'Invalid retries, range [%d - %d]', 
-               RETRIES_MINIMUM, RETRIES_MAXIMUM 
+               'Invalid retries value [%s], range %d - %d', 
+               $_[1], RETRIES_MINIMUM, RETRIES_MAXIMUM 
             );
          }
       } else {

@@ -3,7 +3,7 @@
 
 package Net::SNMP::Security::USM;
 
-# $Id: USM.pm,v 1.0 2001/10/15 13:33:47 dtown Exp $
+# $Id: USM.pm,v 1.1 2001/10/26 12:26:10 dtown Exp $
 
 # Object that implements the SNMPv3 User-based Security Model.
 
@@ -98,14 +98,14 @@ sub new
    my $this = bless {
       '_error'              => undef,                 # Error message
       '_version'            => SNMP_VERSION_3,        # securityModel
-      '_authoritative'      => FALSE,                 # Aauthoritative flag
+      '_authoritative'      => FALSE,                 # Authoritative flag
       '_discovered'         => FALSE,                 # Engine discovery flag
-      '_synchronized'       => FALSE,                 # Synchonization flag
+      '_synchronized'       => FALSE,                 # Synchronization flag
       '_security_level'     => LEVEL_NOAUTHNOPRIV,    # securityLevel
       '_engine_id'          => '',                    # snmpEngineID
       '_engine_boots'       => 0,                     # snmpEngineBoots
       '_engine_time'        => 0,                     # snmpEngineTime
-      '_latest_engine_time' => 0,                     # latestEngineTime
+      '_latest_engine_time' => 0,                     # latestReceivedEngineTime
       '_time_epoc'          => time(),                # snmpEngineBoots epoc
       '_user_name'          => '',                    # securityName 
       '_auth_key'           => undef,                 # authKey 
@@ -355,8 +355,7 @@ sub process_incoming_msg
    # We need to zero out the msgAuthenticationParameters in order 
    # to compute the HMAC properly.
 
-   my $len = length($auth_params);
-   if ($len) {
+   if (my $len = length($auth_params)) {
       substr(${$msg->reference}, ($msg->index - $len), $len) = pack("x$len");
    }
 
@@ -550,7 +549,7 @@ sub _auth_protocol
          return $this->_error('Unknown authProtocol specified [%s]', $proto);
       }
 
-      $this->{_auth_protocol} = $protocols->{shift(@match)};
+      $this->{_auth_protocol} = $protocols->{$match[0]};
    }
 
    $this->{_auth_protocol};
@@ -667,7 +666,7 @@ sub _discovery
 {
    my ($this, $engine_id, $engine_boots, $engine_time) = @_;
 
-   if ((length($engine_id) > 0) && (length($engine_id) <= 32)) {
+   if ((length($engine_id) >= 5) && (length($engine_id) <= 32)) {
          $this->{_engine_id} = $engine_id;
          DEBUG_INFO('engineID = 0x%s', unpack('H*', $engine_id));
          if (!$this->{_authoritative}) {
@@ -703,8 +702,10 @@ sub _synchronize
        (($engine_boots == $this->{_engine_boots}) && 
         ($engine_time > $this->{_latest_engine_time})))
    {
+
       DEBUG_INFO(
-         'engineBoots = %d, engineTime = %d', $engine_boots, $engine_time
+         'update: engineBoots = %d, engineTime = %d', 
+         $engine_boots, $engine_time
       );
 
       $this->{_engine_boots} = $engine_boots;
@@ -721,8 +722,16 @@ sub _synchronize
       TRUE; 
 
    } else {
-      DEBUG_INFO('synchronization failed');
+
+      DEBUG_INFO(
+         'no update: engineBoots = %d, msgBoots = %d; ' .
+         'latestTime = %d, msgTime = %d',
+         $this->{_engine_boots}, $engine_boots,
+         $this->{_latest_engine_time}, $engine_time
+      );
+
       FALSE;
+
    } 
 }
 

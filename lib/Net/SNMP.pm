@@ -3,7 +3,7 @@
 
 package Net::SNMP;
 
-# $Id: SNMP.pm,v 4.0 2001/10/15 13:25:18 dtown Exp $
+# $Id: SNMP.pm,v 4.1 2001/10/26 12:26:10 dtown Exp $
 
 # Copyright (c) 1998-2001 David M. Town <dtown@cpan.org>
 # All rights reserved.
@@ -15,7 +15,7 @@ package Net::SNMP;
 
 =head1 NAME
 
-Net::SNMP - Simple Network Management Protocol
+Net::SNMP - Object oriented interface to SNMP 
 
 =head1 SYNOPSIS
 
@@ -57,7 +57,7 @@ retries at the Transport Layer.
 The default behavior of the methods associated with a Net::SNMP object is to
 block the code flow until the method completes.  For methods that initiate a
 SNMP protocol exchange requiring a response, a hash reference containing the
-results of the query are returned. The undefined value is returned by all
+results of the query is returned. The undefined value is returned by all
 methods when a failure has occurred. The C<error()> method can be used to
 determine the cause of the failure.
 
@@ -103,7 +103,7 @@ BEGIN
 
 ## Version of Net::SNMP module
 
-our $VERSION = '3.9.5';
+our $VERSION = '3.9.6';
 
 ## Load our modules
 
@@ -131,7 +131,7 @@ our @ASN1_PDU = qw(
 
 our @DEBUG = qw(
    DEBUG_ALL DEBUG_NONE DEBUG_MESSAGE DEBUG_TRANSPORT DEBUG_DISPATCHER
-   DEBUG_PROCESSING DEBUG_SECURITY
+   DEBUG_PROCESSING DEBUG_SECURITY snmp_debug
 );
 
 our @GENERICTRAP = qw(
@@ -440,8 +440,9 @@ an IP network hostname or an IP address in dotted notation.  This argument
 is optional and defaults to "localhost".  The destination UPD port number can
 be specified using the B<-port> argument.  This argument is also optional and
 defaults to 161, which is the port number on which devices using default 
-values expect to receive all SNMP messages except for traps. Port number 162 
-is the default port used by devices expecting to receive SNMP traps.
+values expect to receive SNMP request messages.  The B<-port> argument will 
+need to be specified for remote devices expecting to receive SNMP 
+notifications since these device typically default to port 162.
 
 By default the source IP address and port number are assigned dynamically by 
 the local device on which the Net::SNMP module is being used.  This dynamic 
@@ -705,7 +706,7 @@ type, and the actual value to be set.  This list is passed to the method as
 an array reference using the B<-varbindlist> argument.  The OBJECT IDENTIFIERs 
 in each trio are to be in dotted notation.  The object type is a byte 
 corresponding to the ASN.1 type of value that is to be set.  Each of the 
-supported ANS.1 types have been defined and are exported by the package by 
+supported ASN.1 types have been defined and are exported by the package by 
 default (see L<"EXPORTS">). 
 
 A reference to a hash is returned in blocking mode which contains the contents
@@ -950,7 +951,7 @@ an object type, and the actual value to be identified.  This list is passed
 to the method as an array reference using the B<-varbindlist> argument.  The 
 OBJECT IDENTIFIERs in each trio are to be in dotted notation.  The object type 
 is a byte corresponding to the ASN.1 type of value that is to be identified.  
-Each of the supported ANS.1 types have been defined and are exported by the 
+Each of the supported ASN.1 types have been defined and are exported by the 
 package by default (see L<"EXPORTS">). 
 
 The first two variable-bindings fields in the inform-request are specified
@@ -1020,7 +1021,7 @@ groups of an OBJECT IDENTIFIER, an object type, and the actual value to be
 identified.  This list is passed to the method as an array reference using the 
 B<-varbindlist> argument.  The OBJECT IDENTIFIERs in each trio are to be in 
 dotted notation.  The object type is a byte corresponding to the ASN.1 type 
-of value that is to be identified.  Each of the supported ANS.1 types have 
+of value that is to be identified.  Each of the supported ASN.1 types have 
 been defined and are exported by the package by default (see L<"EXPORTS">). 
 
 The first two variable-bindings fields in the snmpV2-trap are specified by
@@ -1124,7 +1125,7 @@ sub get_table
    # see if the first argument is an OBJECT IDENTIFIER and then
    # act accordingly.
 
-   if ((@_) && ($_[0] =~ /^\.?\d+\.\d+(\.\d+)*/)) {
+   if ((@_) && ($_[0] =~ /^\.?\d+\.\d+(?:\d+)*/)) {
       $argv[0] = $_[0];
    } else {
       if (!defined($this->_prepare_argv([qw( -callback
@@ -1138,7 +1139,7 @@ sub get_table
       }
    }
 
-   if ($argv[0] !~ /^\.?\d+\.\d+(\.\d+)*/) {
+   if ($argv[0] !~ /^\.?\d+\.\d+(?:\d+)*/) {
       return $this->_error(
          'Expected base OBJECT IDENTIFIER in dotted notation'
       );
@@ -1245,7 +1246,7 @@ sub hostname
    $error_status = $session->error_status;
 
 This method returns the numeric value of the error-status contained in the 
-last SNMP GetResponse-PDU or Report-PDU received by the object.
+last SNMP GetResponse-PDU received by the object.
 
 =cut
 
@@ -1259,7 +1260,7 @@ sub error_status
    $error_index = $session->error_index;
 
 This method returns the numeric value of the error-index contained in the 
-last SNMP GetResponse-PDU or Report-PDU received by the object.
+last SNMP GetResponse-PDU received by the object.
 
 =cut
 
@@ -1273,9 +1274,9 @@ sub error_index
    $response = $session->var_bind_list;
 
 This method returns a hash reference created using the ObjectName and the 
-ObjectSyntax pairs in the VarBindList of the last SNMP GetResponse-PDU or
-Report-PDU received by the object.  The keys of the hash consist of the 
-OBJECT IDENTIFIERs in dotted notation corresponding to each ObjectName in the 
+ObjectSyntax pairs in the VarBindList of the last SNMP GetResponse-PDU 
+received by the object.  The keys of the hash consist of the OBJECT 
+IDENTIFIERs in dotted notation corresponding to each ObjectName in the 
 VarBindList.  If any of the OBJECT IDENTIFIERs passed to the request method 
 began with a leading dot, all of the OBJECT IDENTIFIER hash keys will be 
 prefixed with a leading dot.  The value of each hash entry is set equal to 
@@ -1314,8 +1315,9 @@ sub timeout
       return $_[0]->_error('No Transport Layer defined');
    }
 
-   $_[0]->{_transport}->timeout($_[1]) ||
-      $_[0]->_error($_[0]->{_transport}->error);
+   my $timeout = $_[0]->{_transport}->timeout($_[1]);
+
+   defined($timeout) ? $timeout : $_[0]->_error($_[0]->{_transport}->error);
 }
 
 =head2 retries() - set or get the current retry count for the object
@@ -1375,8 +1377,9 @@ sub max_msg_size
       return $_[0]->_error('No Transport Layer defined');
    }
 
-   $_[0]->{_transport}->max_msg_size($_[1]) ||
-      $_[0]->_error($_[0]->{_transport}->error);
+   my $max_size = $_[0]->{_transport}->max_msg_size($_[1]);
+
+   defined($max_size) ? $max_size : $_[0]->_error($_[0]->{_transport}->error);
 }
 
 sub mtu
@@ -1402,9 +1405,9 @@ sub mtu
                         ]
                      ]);
 
-When the object decodes the GetResponse-PDU or Report-PDU that is returned 
-in response to a SNMP message, certain values are translated into a more 
-"human readable" form.  By default the following translations occur: 
+When the object decodes the GetResponse-PDU that is returned in response to 
+a SNMP message, certain values are translated into a more "human readable" 
+form.  By default the following translations occur: 
 
 =over 
 
@@ -1452,7 +1455,7 @@ signed negative values are returned as unsigned values.
 The C<translate()> method can be invoked with two different types of arguments.
 
 If the argument passed is any Perl variable type except an array reference,
-the translation mode for all ASN.1 type is set to either enabled or disabled, 
+the translation mode for all ASN.1 types is set to either enabled or disabled, 
 depending on the value of the passed parameter.  Any value that Perl would 
 treat as a true value will set the mode to be enabled for all types, while a 
 false value will disable translation for all types.
@@ -1468,7 +1471,7 @@ ASN.1 types that are to be modified need to be included in the list.
 
 The C<translate()> method returns a bit mask indicating which ASN.1 types
 are to be translated.  Definitions of the bit to ASN.1 type mappings can be
-exported using the ":translate" tag (see L<"EXPORTS">).  The undefined value 
+exported using the I<:translate> tag (see L<"EXPORTS">).  The undefined value 
 is returned upon an error and the C<error()> method may be used to determine 
 the cause.
 
@@ -1552,11 +1555,11 @@ passed to the C<debug()> method.  The bit mask is broken up as follows:
 
 =item * 
 
-0x10 - Message Processing 
+0x10 - Message Processing  
 
 =item * 
 
-0x20 - Security 
+0x20 - Security
 
 =back
 
@@ -1768,7 +1771,7 @@ sub _version
    if (@_ == 2) {
       my @match = grep(/^\Q$_[1]/i, keys(%{$supported})); 
       if (@match != 1) {
-         return $_[0]->_error("Unknown or invalid SNMP version [%s]", $_[1]);
+         return $_[0]->_error('Unknown or invalid SNMP version [%s]', $_[1]);
       }
       $_[1] = $_[0]->{_version} = $supported->{$match[0]};
    }
@@ -1793,7 +1796,7 @@ sub _prepare_argv
    # argument is an OBJECT IDENTIFIER in dotted notation.  If it
    # is, assign it to the -varbindlist argument.
 
-   if ((@{$_[2]}) && ($_[2]->[0] =~ /^\.?\d+\.\d+(\.\d+)*/)) {
+   if ((@{$_[2]}) && ($_[2]->[0] =~ /^\.?\d+\.\d+(?:\d+)*/)) {
       $argv{-varbindlist} = $_[2];
    } else {
       %argv = @{$_[2]};
@@ -1802,7 +1805,7 @@ sub _prepare_argv
    # Go through the passed argument list and see if the argument is
    # allowed.  If it is, see if it applies to the object and has a 
    # matching method call or add it the the new argv list to be 
-   # returned from the methods.
+   # returned by this method.
 
    my %new_args;
 
@@ -1947,7 +1950,7 @@ sub _delay
       return $this->_error('Delay not applicable to blocking objects');   
    }
 
-   if ($delay !~ /^\d+(\.\d+)?$/) {
+   if ($delay !~ /^\d+(?:\.\d+)?$/) {
       return $_[0]->_error('Invalid delay value [%s]', $delay);
    }
 
@@ -1991,21 +1994,29 @@ sub _v3_discovery
 
    return TRUE if ($this->{_security}->discovered);
 
+   # Create a new PDU
    if (!defined($this->_create_pdu)) {
       return $this->_error;
    }
 
+   # Create the callback and assign it to the PDU
    $this->{_pdu}->callback(
       sub {
          $this->{_pdu} = $_[0];
+         $this->_error_clear;
+         if ($this->{_pdu}->error) {
+            $this->_error($this->{_pdu}->error . ' during discovery');
+         }
          $this->_v3_discovery_cb; 
       }
    );
 
+   # Prepare an empty get-request
    if (!defined($this->{_pdu}->prepare_get_request)) {
       return $this->_error($this->{_pdu}->error);
    }
 
+   # Send the PDU
    $DISPATCHER->send_pdu($this->{_pdu}, 0);
 
    snmp_dispatcher() unless ($this->{_nonblocking});
@@ -2017,22 +2028,37 @@ sub _v3_discovery_cb
 {
    my ($this) = @_;
 
-   if ((!defined($this->var_bind_list)) || (!$this->{_security}->discovered)) {
+   # When we receive a response to the discovery get-request, we
+   # should get a report containing the usmStatsUnknownEngineIDs
+   # OBJECT IDENTIFIER.  If another error is returned, we assume 
+   # discovery has failed, even if the Security Model says that it 
+   # completed.
+
+   if (($this->{_security}->discovered) && ($this->{_error} =~ /EngineID/i)) {
+
+      DEBUG_INFO('discovery complete');
+
+      # Discovery is complete, send any pending messages
       while ($_ = shift(@{$this->{_discovery_queue}})) {
-         $_->[0]->error('Discovery of authoritative SNMP engine failed');
-         $_->[0]->callback_execute;
+         $DISPATCHER->send_pdu(@{$_});
       }
-      $this->_error_clear;
-      $this->close;
-      return $this->_error('Discovery of authoritative SNMP engine failed');  
+      
+      return TRUE;
    }
 
-   # Discovery is complete, send any pending messages
-   while ($_ = shift(@{$this->{_discovery_queue}})) {
-      $DISPATCHER->send_pdu(@{$_});
-   }   
+   # Discovery failed, clear the current PDU and the Transport Layer 
+   # so no one can use this object to send messages.
 
-   TRUE;
+   $_[0]->{_pdu}       = undef;
+   $_[0]->{_transport} = undef;
+
+   # Upcall any pending messages with the current error
+   while ($_ = shift(@{$this->{_discovery_queue}})) {
+      $_->[0]->error($this->{_error});
+      $_->[0]->callback_execute;
+   }
+
+   $this->_error;
 }
 
 sub _translate_mask
@@ -2093,7 +2119,7 @@ sub _get_table_cb
             }
 
             # Check to make sure that the remote host does not respond
-            # incorrectly causing the get-next-requests to loop forever.
+            # incorrectly causing the requests to loop forever.
 
             if ($argv->{repeat_cnt} > 5) {
                $this->{_pdu}->var_bind_list(undef);

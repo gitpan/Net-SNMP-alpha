@@ -3,7 +3,7 @@
 
 package Net::SNMP::Message;
 
-# $Id: Message.pm,v 1.0 2001/10/15 13:28:02 dtown Exp $
+# $Id: Message.pm,v 1.1 2001/10/26 12:26:10 dtown Exp $
 
 # Object used to represent a SNMP message. 
 
@@ -17,7 +17,7 @@ package Net::SNMP::Message;
 
 use strict;
 
-use Math::BigInt;
+use Math::BigInt();
 
 ## Version of the Net::SNMP::Message module
 
@@ -157,6 +157,8 @@ sub FALSE()                    { 0x00 }
 
 our $DEBUG = FALSE;                      # Debug flag
 
+our $AUTOLOAD;                           # Used by the AUTOLOAD method
+
 # [public methods] -----------------------------------------------------------
 
 sub new
@@ -232,6 +234,8 @@ sub new
 
    sub prepare 
    {
+   #  my ($this, $type, $value) = @_;
+
       return $_[0]->_error('ASN.1 type not defined') unless (@_ > 1);
       return $_[0]->_error if defined($_[0]->{_error});
 
@@ -272,6 +276,8 @@ sub new
 
    sub process 
    {
+   #  my ($this, $type) = @_;
+
       return $_[0]->_error if defined($_[0]->{_error});
 
       return $_[0]->_error unless defined(my $type = $_[0]->_buffer_get(1));
@@ -326,10 +332,7 @@ sub prepare_v3_global_data
       $this->{_msg_flags} |= MSG_FLAGS_AUTH | MSG_FLAGS_PRIV;
    }
 
-   if (($pdu->pdu_type == GET_RESPONSE) ||
-       ($pdu->pdu_type == SNMPV2_TRAP)  ||
-       ($pdu->pdu_type == REPORT))
-   {
+   if (!$pdu->expect_response) {
       $this->{_msg_flags} &= ~MSG_FLAGS_REPORTABLE;
    }
 
@@ -495,7 +498,7 @@ sub msg_security_model
 sub community
 {
    defined($_[0]->{_community}) ? $_[0]->{_community} : '';
-} 
+}
 
 sub version
 {
@@ -513,6 +516,21 @@ sub version
    $_[0]->{_version};
 }
 
+sub error_status 
+{ 
+   0; # noError 
+}
+
+sub error_index
+{ 
+   0;
+} 
+
+sub var_bind_list 
+{
+   undef;
+}  
+
 #
 # Security Model accessor methods
 #
@@ -520,11 +538,11 @@ sub version
 sub security
 {
    if (@_ == 2) {
-      if (ref($_[1])) {
+      if (defined($_[1])) {
          $_[0]->{_security} = $_[1];
       } else {
          $_[0]->_error_clear;
-         return $_[0]->_error('Expected Security Model reference');
+         return $_[0]->_error('No Security Model defined');
       }
    }
 
@@ -538,11 +556,12 @@ sub security
 sub transport
 {
    if (@_ == 2) {
-      if (ref($_[1])) {
+      if (defined($_[1])) {
          $_[0]->{_transport} = $_[1];
       } else {
          $_[0]->_error_clear;
-         return $_[0]->_error('Expected Transport Layer reference');
+         return $_[0]->_error('No Transport Layer defined');
+         
       }
    }
 
@@ -753,6 +772,15 @@ sub debug
    (@_ == 2) ? $DEBUG = ($_[1]) ? TRUE : FALSE : $DEBUG;
 }
 
+sub AUTOLOAD
+{
+   return if $AUTOLOAD =~ /::DESTROY$/;
+
+   $AUTOLOAD =~ s/.*://;
+
+   $_[0]->_error('Feature not supported [%s]', $AUTOLOAD);
+}
+
 # [private methods] ----------------------------------------------------------
 
 #
@@ -761,17 +789,18 @@ sub debug
 
 sub _prepare_type_length
 {
+#  my ($this, $type, $value) = @_;
+
    return $_[0]->_error('ASN.1 type not defined') unless defined($_[1]);
 
-   my $value  = $_[2];
-   my $length = CORE::length($value);
+   my $length = CORE::length($_[2]);
 
    if ($length < 0x80) {
-      $_[0]->_buffer_put(pack('C2', $_[1], $length) . $value);
+      $_[0]->_buffer_put(pack('C2', $_[1], $length) . $_[2]);
    } elsif ($length <= 0xff) {
-      $_[0]->_buffer_put(pack('C3', $_[1], 0x81, $length) . $value);
+      $_[0]->_buffer_put(pack('C3', $_[1], 0x81, $length) . $_[2]);
    } elsif ($length <= 0xffff) {
-      $_[0]->_buffer_put(pack('CCn', $_[1], 0x82, $length), $value);
+      $_[0]->_buffer_put(pack('CCn', $_[1], 0x82, $length) . $_[2]);
    } else {
       $_[0]->_error('Unable to prepare ASN.1 length');
    }
@@ -790,8 +819,6 @@ sub _prepare_integer
 
 sub _prepare_unsigned32
 {
-   $_[1] ||= INTEGER; # Set the type to INTEGER if it is not defined
-
    if (!defined($_[2])) {
       return $_[0]->_error('%s value not defined', asn1_itoa($_[1]));
    }
@@ -808,12 +835,9 @@ sub _prepare_unsigned32
 sub _prepare_integer32
 {
    my ($this, $type, $int32) = @_;
-   my ($size, $value, $prefix) = (4, '', FALSE);
-
-   $type ||= INTEGER; # Set the type to INTEGER if it is not defined
 
    if (!defined($int32)) {
-      return $this->_error('%s value not defined', asn1_itoa($int32));
+      return $this->_error('%s value not defined', asn1_itoa($type));
    }
 
    # Determine if the value is positive or negative
@@ -821,6 +845,10 @@ sub _prepare_integer32
 
    # Check to see if the most significant bit is set, if it is we
    # need to prefix the encoding with a zero byte.
+
+   my $size   = 4;     # Assuming 4 byte integers
+   my $prefix = FALSE;
+   my $value  = '';
 
    if ((($int32 & 0xff000000) & 0x80000000) && (!$negative)) {
       $size++;
@@ -1122,6 +1150,8 @@ sub _prepare_report
 
 sub _process_length
 {
+#  my ($this) = @_;
+
    return $_[0]->_error if defined($_[0]->{_error});
 
    return $_[0]->_error unless defined(my $length = $_[0]->_buffer_get(1));

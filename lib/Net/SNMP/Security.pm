@@ -3,7 +3,7 @@
 
 package Net::SNMP::Security;
 
-# $Id: Security.pm,v 1.0 2001/10/15 13:32:18 dtown Exp $
+# $Id: Security.pm,v 1.1 2001/10/26 12:26:10 dtown Exp $
 
 # Base object that implements the Net::SNMP Security Models.
 
@@ -114,6 +114,8 @@ sub error
 sub AUTOLOAD
 {
    return if $AUTOLOAD =~ /::DESTROY$/;
+
+   $AUTOLOAD =~ s/.*://;
 
    $_[0]->_error(
      'Feature not supported by this Security Model [%s]', $AUTOLOAD
